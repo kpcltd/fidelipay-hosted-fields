@@ -13,6 +13,17 @@ use SDK\Gateway;
 // class to add your gateway URLs, proxy URLs and test Merchant account.
 $gateway = new Gateway();
 $message = '';
+
+// To prevent double submissions of the payment form, attach a unique transaction
+// identifier to the user's session, and only remove it from the user's session
+// when a transaction request to FideliPay is completed.
+if (isset($_SESSION['fidelipay_transaction_unique'])) {
+  $transaction_unique = $_SESSION['fidelipay_transaction_unique'];
+} else {
+  $transaction_unique = uniqid();
+  $_SESSION['fidelipay_transaction_unique'] = $transaction_unique;
+}
+
 // If the form is submitted then send the required transaction to the Gateway.
 if (isset($_POST['paymentToken'])) {
 
@@ -24,11 +35,14 @@ if (isset($_POST['paymentToken'])) {
 		'currencyCode'		=> 826,							// in pounds sterling (GBP)
 		'countryCode'		=> 826,							// from the United Kingdom (GB)
 		'paymentToken'		=> $_POST['paymentToken'],		// using payment details supplied in the Hosted Fields
-		'transactionUnique'	=> uniqid(),					// just to stop duplicate transaction flag. 
+		'transactionUnique'	=> $transaction_unique,					// just to stop duplicate transaction flag. 
 		'customerName'		=> $_POST['customerName'],		// where payment details belong to this customer
 	);
 
-	$res = $gateway->directRequest($req);					// Get response back using directRequest method from SDK.
+  $res = $gateway->directRequest($req);					// Get response back using directRequest method from SDK.
+  
+  // Now allow the user to undertake further transactions.
+  unset($_SESSION['fidelipay_transaction_unique']);
 
 	if (isset($res['responseStatus']) && $res['responseStatus'] === '0') {
 		$message =  '<h3 style="color: green;">TRANSACTION SUCCESS ' . htmlentities($res['responseMessage']) . '</h3>';
